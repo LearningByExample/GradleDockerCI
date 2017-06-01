@@ -1,0 +1,83 @@
+version = '1.0.0-SNAPSHOT'
+
+apply plugin: 'java'
+apply plugin: 'application'
+
+repositories {
+    jcenter()
+    mavenCentral()
+}
+
+compileJava {
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
+}
+
+mainClassName = 'org.learning.by.example.GradleDockerCI.DemoApplication'
+
+dependencies {
+    compile 'org.slf4j:slf4j-api:1.7.25'
+    compile 'ch.qos.logback:logback-classic:1.2.3'
+
+    testCompile 'junit:junit:4.12'
+    testCompile 'org.hamcrest:hamcrest-all:1.3'
+}
+
+task copySrc(type: Copy) {
+    group = "docker"
+    from "src"
+    into "build/docker/app/src"
+}
+
+task copyWrapperFiles(type: Copy) {
+    group = "docker"
+    from "gradlew"
+    from "settings.gradle"
+    from "build.gradle"
+    into "build/docker/app"
+}
+
+task copyWrapper(type: Copy){
+    group = "docker"
+    from "gradle/wrapper/gradle-wrapper.jar"
+    from "gradle/wrapper/gradle-wrapper.properties"
+    into "build/docker/app/gradle/wrapper"
+}
+
+copyWrapper.dependsOn copyWrapperFiles
+
+task copyDockerFile(type: Copy) {
+    group = "docker"
+    from "docker"
+    into "build/docker"
+}
+
+def dockerFile = project.projectDir.getAbsolutePath() + "/build/docker"
+def dockerName = project.name.toLowerCase() + ":" + version.toLowerCase()
+
+task dockerBuild(type: Exec) {
+    workingDir project.projectDir
+    commandLine 'docker', 'build', '-t', dockerName, dockerFile
+}
+
+dockerBuild.dependsOn copySrc
+dockerBuild.dependsOn copyWrapper
+dockerBuild.dependsOn copyDockerFile
+
+task dockerRun(type: Exec) {
+    group = "application"
+    group = "docker"
+    workingDir project.projectDir
+    commandLine 'docker', 'run', dockerName , "./gradlew", "run"
+}
+
+dockerRun.dependsOn dockerBuild
+
+task dockerTest(type: Exec) {
+    group = "verification"
+    group = "docker"
+    workingDir project.projectDir
+    commandLine 'docker', 'run', dockerName , "./gradlew", "test"
+}
+
+dockerTest.dependsOn dockerBuild
