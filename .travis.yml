@@ -10,4 +10,5 @@ cache:
   directories:
   - .autoconf
   - $HOME/.m2
+  - docker
 script: ./gradlew dockerTest
